@@ -7,7 +7,7 @@ import Timewarrior, {
 
 import structuredClone from "@ungap/structured-clone";
 
-type SparseSpawnSyncReturns = {
+type SparseSpawnReturns = {
   stdout?: string;
   stderr?: string;
   status?: number;
@@ -24,22 +24,6 @@ const defaultSpawnReturns: SpawnSyncReturns<string> = {
 
 const defaultVersion = "1.4.2";
 
-function result(sparseResult: SparseSpawnSyncReturns | string) {
-  if (typeof sparseResult === "string") {
-    sparseResult = { stdout: sparseResult };
-  }
-  const result = Object.assign(
-    structuredClone(defaultSpawnReturns),
-    sparseResult
-  );
-  result.output = [result.signal, result.stdout, result.stderr];
-  return result;
-}
-
-function hash(args: string[] | string) {
-  return typeof args === "string" ? args : args.join("\n");
-}
-
 /**
  * Used to map timewarrior arguments to timewarrior command line output as
  * tuples. The first tuple element are the arguments to the timewarrior command
@@ -48,26 +32,21 @@ function hash(args: string[] | string) {
  * defined, a string can be used, otherwise a an object with the optional
  * entries `stdout`, `stderr` and status.
  */
-type SpawnMocks = [
-  args: string[] | string,
-  result: SparseSpawnSyncReturns | string
-][];
+type MockSpawns = [args: string[], result: SparseSpawnReturns | string][];
 
-function spawnReturn(
-  stdout: string,
-  stderr?: string,
-  status?: number
+function spawnReturns(
+  sparseReturns: SparseSpawnReturns
 ): SpawnSyncReturns<string> {
   const signal = null;
-  stderr ||= "";
-  status ||= 0;
+  const stdout = sparseReturns.stdout || "";
+  const stderr = sparseReturns.stderr || "";
 
   return {
     pid: -1,
     output: [signal, stdout, stderr],
     stdout,
     stderr,
-    status,
+    status: sparseReturns.status || 0,
     signal,
   };
 }
@@ -88,24 +67,32 @@ function intervalToJson(interval: Interval): JsonInterval {
 }
 
 /**
+ * Quotes arguments and joins them into a single string
+ */
+function formatArgs(args: string[]) {
+  return args.map((arg) => "'" + arg.replace(/'/g, "'\\''") + "'").join(" ");
+}
+
+/**
  * @returns A Timewarrior instance with a mocked `spawn()` method.
  */
-export default function mockTimewarrior(spawnMocks: SpawnMocks) {
-  const commandMap: { [argsHash: string]: SpawnSyncReturns<string> } = {
-    // We use some defaults:
-    "--version": result(defaultVersion),
-  };
-  for (const [args, mockResult] of spawnMocks) {
-    commandMap[hash(args)] = result(mockResult);
+export default function mockTimewarrior(mockSpawns: MockSpawns) {
+  // We mock the constructor's initial version call, unless it's explicitly
+  // defined in mockSpawns
+  const initialArgs = mockSpawns[0]?.[0];
+  if (!initialArgs || initialArgs.length !== 1 || initialArgs[0] !== "--help") {
+    mockSpawns.unshift([["--help"], defaultVersion]);
   }
 
   class MockedTimewarrior extends Timewarrior {
     mockGetInterval = false;
-    commandMap = commandMap;
+    mockSpawns = mockSpawns;
   }
 
   // As .spawn() is private, we has to silence TypeScript by using "as any"
-  (MockedTimewarrior.prototype as any).spawn = function (args: string[]) {
+  (MockedTimewarrior.prototype as any).spawn = function (
+    args: string[]
+  ): SpawnSyncReturns<string> {
     const [command, arg1] = args;
     // Silence TypeScript for accessing the private `intervals` property
     const intervals = (this as any).intervals as Interval[];
@@ -121,21 +108,33 @@ export default function mockTimewarrior(spawnMocks: SpawnMocks) {
       if (id) {
         const interval = intervals[parseInt(id)] as Interval | undefined;
         return interval
-          ? spawnReturn(JSON.stringify(intervalToJson(interval)))
-          : spawnReturn("", `DOM reference '${arg1}' is not valid.\n`, 255);
+          ? spawnReturns({ stdout: JSON.stringify(intervalToJson(interval)) })
+          : spawnReturns({
+              stdout: "",
+              stderr: `DOM reference '${arg1}' is not valid.\n`,
+              status: 255,
+            });
       }
       // We have a different "get command" where we don't support bypassing the
       // db, so continue with table based mocking.
     }
 
-    const result = commandMap[hash(args)];
-    if (!result) {
+    const [expectedArgs, result] = mockSpawns.shift() || [];
+    if (!expectedArgs || !result) {
+      throw new Error("Mock spawn queue is empty");
+    }
+
+    if (formatArgs(args) !== formatArgs(expectedArgs)) {
       throw new Error(
-        "No mock result for the following command parameters found:\n\n" +
-          JSON.stringify(args)
+        `Expected args:\n\n  ${formatArgs(
+          expectedArgs
+        )}\n\nbut found:\n\  ${formatArgs(args)}`
       );
     }
-    return result;
+
+    return spawnReturns(
+      typeof result === "string" ? { stdout: result } : result
+    );
   };
 
   return new MockedTimewarrior();
