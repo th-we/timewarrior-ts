@@ -1,4 +1,5 @@
-import { spawnSync } from "child_process";
+import { spawnSync, SpawnSyncReturns } from "child_process";
+import { Interval, JsonInterval } from "./Interval";
 
 export type TimewarriorOptions = {
   /**
@@ -7,54 +8,90 @@ export type TimewarriorOptions = {
    */
   timewarriordb?: string;
   /**
-   *
+   * Defaults to `"timew"`. Can be an absolute path as well.
    */
   command?: string;
 };
 
-export type Interval = {
-  id: number;
-  start: Date;
-  end: Date;
-  tags: Set<string>;
-  annotation: string;
-};
+type Command =
+  | "--version"
+  | "--help"
+  | "annotate"
+  | "cancel"
+  | "config"
+  | "continue"
+  | "day"
+  | "delete"
+  | "diagnostics"
+  | "export"
+  | "extensions"
+  | "get"
+  | "help"
+  | "join"
+  | "lengthen"
+  | "modify"
+  | "month"
+  | "move"
+  | "report"
+  | "resize"
+  | "shorten"
+  | "show"
+  | "split"
+  | "start"
+  | "stop"
+  | "summary"
+  | "tag"
+  | "tags"
+  | "track"
+  | "undo"
+  | "untag"
+  | "week";
 
-export type JsonInterval = {
-  id: number;
-  start: string;
-  end: string;
-  tags?: string[];
-  annotation?: string;
-};
+export class ErrorCode extends Error {
+  result: SpawnSyncReturns<string>;
 
-function intervalsAreEqual(a: Interval, b: Interval) {
-  return (
-    a.id === b.id &&
-    a.start.getTime() === b.start.getTime() &&
-    a.end.getTime() === b.end.getTime() &&
-    a.annotation === b.annotation &&
-    a.tags.size == b.tags.size &&
-    [...a.tags].reduce((equal, a) => equal && b.tags.has(a), true)
-  );
+  constructor(result: SpawnSyncReturns<string>) {
+    super();
+    this.message = result.stderr;
+    this.result = result;
+  }
 }
 
-export class OutOfSyncError extends Error {}
+/**
+ * @returns `true` if the number is a non-negative integer and therefore
+ * suitable as ID. It is not checked whether an interval with that ID exists.
+ */
+function assertId(id: number) {
+  return Number.isInteger(id) && id > 0;
+}
 
 export default class Timewarrior {
   public readonly version: string;
   private readonly TIMEWARRIOR: string;
+  /**
+   * Value for TIMEWARRIORDB environment variable
+   */
   private readonly timewarriordb: string;
-  private readonly intervals: Interval[] = [];
 
   constructor(options?: TimewarriorOptions) {
-    this.TIMEWARRIOR = options?.command || "timewarrior";
+    this.TIMEWARRIOR = options?.command || "timew";
     this.timewarriordb = options?.timewarriordb || "";
-    this.version = this.spawn(["--version"]).stdout;
+    this.version = this.spawn("--version").stdout;
   }
 
-  private spawn(args: string[]) {
-    const result = spawnSync(this.TIMEWARRIOR, args, {
+  // TODO: Find a way of making this private, still allowing Interval to access
+  // spawn()
+  /**
+   * Runs a timewarrior command and returns the result.
+   *
+   * This method is "low level" and should not be used outside this module.
+   *
+   * @throws Error if timewarrior was interrupted by a signal.
+   * @throws ErrorCode if timewarrior returned with an error code.
+   */
+  spawn(command: Command, args?: string[]): { stdout: string; stderr: string } {
+    args ||= [];
+    const result = spawnSync(this.TIMEWARRIOR, [command, ...args], {
       encoding: "utf-8",
       env: this.timewarriordb
         ? { TIMEWARRIORDB: this.timewarriordb }
@@ -62,105 +99,147 @@ export default class Timewarrior {
     });
 
     if (result.error) {
-      throw new Error(result.error.message);
+      throw result.error;
     }
-    if (result.status) {
-      // Timewarrior returned an error code or was terminated by a signal
-      throw new Error(result.stderr);
+    if (result.status === null) {
+      throw new Error("Terminated by signal " + result.signal);
+    }
+    if (result.status > 0) {
+      throw new ErrorCode(result);
     }
 
-    return result;
+    return { stdout: result.stdout, stderr: result.stderr };
   }
 
-  private getInterval(intervalRef: Interval | number) {
-    const [id, interval] =
-      typeof intervalRef === "number"
-        ? [intervalRef, this.intervals[intervalRef]]
-        : [intervalRef.id, intervalRef];
-
-    if (!Number.isInteger(id) || id < 1) {
-      throw new Error(`Unsupported id ${id}. Id must be a positive integer.`);
-    }
-
-    // We have to check if we're still in synch with the db. The db might have
-    // been written to from outside this library.
-    const result = this.spawn(["get", `dom.tracked.${id}.json`]);
-    if (result.status !== 0) {
-      throw new Error(result.stderr);
-    }
-    let intervalFromDb;
-    try {
-      // TODO: Check if JSON is as expected
-      intervalFromDb = JSON.parse(result.stdout) as Interval;
-    } catch (e) {
-      throw new Error(
-        `Could not parse timew output for id ${id} to JSON:\n\n${result.stdout}\n\n${e}`
-      );
-    }
-
-    if (!interval) {
-      this.intervals[id] = intervalFromDb;
-      return intervalFromDb;
-    }
-    if (!intervalsAreEqual(interval, intervalFromDb)) {
-      throw new OutOfSyncError();
-    }
-
-    return interval;
+  /**
+   * Returns an Interval that is verified to be consistent with the timewarrior
+   * database.
+   */
+  // TODO: Find a way of making this private, still allowing Interval to access
+  // getInterval()
+  getTracked(id: number) {
+    const result = this.spawn("get", [`dom.tracked.${assertId(id)}.json`]);
+    return JSON.parse(result.stdout) as Interval;
   }
 
-  // TODO: timew annotate accepts multiple ids
-  annotate(intervalRef: Interval | number, annotation: string) {
-    const interval = this.getInterval(intervalRef);
-    interval.annotation = annotation;
-    // TODO: Create spawn() variant that returns true/fals or throws an error?
-    this.spawn(["annotate", `@${interval.id}`, annotation]).status === 0;
+  activeInterval() {
+    const result = this.spawn("get", ["dom.active.json"]);
+    return result.stdout
+      ? new Interval(JSON.parse(result.stdout), this)
+      : undefined;
   }
 
   /**
    * @returns `true` if there was an active task that was cancelled
    */
   cancel(): boolean {
-    const result = this.spawn(["cancel"]).stdout;
-    // TODO: Create a pull request to return different exit codes so that we
-    // don't have to rely on the message to stdout? We might have localized
-    // outputs.
-    switch (result) {
-      case "Canceled active time tracking.":
-        true;
-      case "There is no active time tracking.":
-        return false;
-      default:
-        throw new Error("cancel() returned unexpected result: " + result);
+    const activeInterval = this.activeInterval();
+    if (!activeInterval) {
+      return false;
     }
+    activeInterval.delete();
+    return true;
   }
 
-  config() {}
-  continue() {}
-  day() {}
-  delete() {}
-  diagnostics() {}
-  export() {}
-  extensions() {}
-  get() {}
-  help() {}
-  join() {}
-  lengthen() {}
-  modify() {}
-  month() {}
-  move() {}
-  report() {}
-  resize() {}
-  shorten() {}
-  show() {}
-  split() {}
-  start() {}
-  stop() {}
-  summary() {}
-  tag() {}
-  tags() {}
-  track() {}
-  undo() {}
-  untag() {}
-  week() {}
+  /**
+   * Starts a new interval
+   */
+  start(tags?: string[], annotation?: string) {
+    this.spawn("start", tags);
+    const activeInterval = this.activeInterval();
+    if (!activeInterval) {
+      // Should be unreachable
+      throw new Error("Could not start a new Interval");
+    }
+    if (annotation) {
+      activeInterval.annotation = annotation;
+    }
+
+    return activeInterval;
+  }
+
+  /**
+   * @returns The stopped interval, and if tags were supplied and only tracking
+   * of those tags was stopped, also the freshly started interval where the
+   * tracks were removed.
+   * @throws ErrorCode when there is no active interal
+   */
+  stop(tags?: string[]) {
+    const stopped = this.activeInterval();
+    this.spawn("stop", tags);
+    const started = this.activeInterval();
+
+    return {
+      started,
+      stopped:
+        started && stopped && started.equals(stopped) ? started : stopped,
+    };
+  }
+
+  /**
+   * Adds a new interval to the database.
+   *
+   * @param adjust If `true` will adjust intervals that overlap and delete
+   * intervals that are enclosed by the added interval.
+   * @returns The new interval
+   * @throws ErrorCode in case of conflicting intervals when `adjust` is not true.
+   */
+  track(start: Date, end: Date, tags?: string[], adjust?: boolean) {
+    const range = [start.toISOString(), "to", end.toISOString()];
+    tags ||= [];
+    const hints = adjust ? [":adjust"] : [];
+    this.spawn("track", [...range, ...tags, ...hints]);
+    return this.exportInterval([start, end]);
+  }
+
+  undo() {
+    this.spawn("undo");
+  }
+
+  /**
+   * Fetches an array of Intervals matching the range and tags
+   */
+  export(range?: [Date] | [Date, Date?], tags?: []) {
+    const args = [];
+    if (range) {
+      args.push(range[0].toISOString());
+      if (range[1]) {
+        args.push("to");
+        args.push(range[1].toISOString());
+      }
+    }
+
+    return JSON.parse(
+      this.spawn("export", [...args, ...(tags || [])]).stdout
+    ) as JsonInterval[];
+  }
+
+  /**
+   * `export()` variant that will return a single Interval or throw an error if
+   * there is not precisely one interval in the given range.
+   */
+  exportInterval(range: [Date] | [Date, Date?], tags?: []) {
+    const intervals = this.export(range, tags);
+    if (intervals.length !== 1) {
+      // Should be unreachable
+      const start = range[0].toISOString();
+      const end = range[1]?.toISOString() || "now";
+      throw new Error(
+        `Expected single interval in range ${start} to ${end}, but found ${intervals.length}`
+      );
+    }
+    return intervals[0];
+  }
+
+  // Unimplemented:
+  // config() {}
+  // day() {}
+  // diagnostics() {}
+  // extensions() {}
+  // help() {}
+  // month() {}
+  // report() {}
+  // show() {}
+  // summary() {}
+  // week() {}
 }
