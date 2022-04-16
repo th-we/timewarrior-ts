@@ -63,6 +63,8 @@ export class Interval {
     }
 
     this.id = other.id;
+
+    return this;
   }
 
   set start(date: string | Date | number) {
@@ -174,7 +176,15 @@ export class Interval {
   // resize() {}
   // move() {}
 
-  // join() {}
+  join(other: number | Interval) {
+    this.sync();
+    const otherId = typeof other === "number" ? other : other.sync().id;
+    if (Math.abs(otherId - this.id) !== 1) {
+      throw new Error("Only adjacent Intervals may be joined");
+    }
+    this.timewarrior.spawn("join", ["@" + this.id, "@" + otherId]);
+    return this.timewarrior.getTracked(Math.min(this.id, otherId));
+  }
 
   /**
    * Splits the Interval in half
