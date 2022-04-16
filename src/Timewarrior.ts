@@ -119,15 +119,25 @@ export default class Timewarrior {
   // TODO: Find a way of making this private, still allowing Interval to access
   // getInterval()
   getTracked(id: number) {
-    const result = this.spawn("get", [`dom.tracked.${assertId(id)}.json`]);
-    return JSON.parse(result.stdout) as Interval;
+    const result = this.spawn("get", [`dom.tracked.${id}.json`]);
+    return new Interval(JSON.parse(result.stdout), this);
   }
 
+  /**
+   * @returns The active Interval, or `undefined`, if there is no active interval.
+   */
   activeInterval() {
-    const result = this.spawn("get", ["dom.active.json"]);
-    return result.stdout
-      ? new Interval(JSON.parse(result.stdout), this)
-      : undefined;
+    const result = this.spawn("get", ["dom.active"]);
+    switch (result.stdout.trim()) {
+      case "0":
+        return undefined;
+      case "1":
+        return this.getTracked(1);
+      default:
+        throw new Error(
+          `Expected '0' or '1' as result of 'get' query 'dom.active', but got '${result.stdout}'`
+        );
+    }
   }
 
   /**
