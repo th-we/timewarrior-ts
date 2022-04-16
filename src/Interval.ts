@@ -163,7 +163,7 @@ export class Interval {
       this.id === other.id &&
       datesAreEqual(this.start, other.start) &&
       datesAreEqual(this.end, other.end) &&
-      this.annotation === other.annotation &&
+      this.annotation === (other.annotation || "") &&
       setsAreEqual(this.tags, other.tags || [])
     );
   }
