@@ -209,15 +209,16 @@ export class Interval {
  * Parses ISO date strings
  */
 function parseDate(datestring: string) {
-  const [, Y, M, D, h, m, s, millis, , Z, utcH, utcM] =
+  const [, Y, M, D, h, m, s, millis, Z, , utcH, utcM] =
     datestring.match(
       /^(\d\d\d\d)-?(\d\d)-?(\d\d)T(\d\d):?(\d\d):?(\d\d)(.\d\d\d)?(Z|([+-])(\d\d):?(\d\d))$/
     ) || [];
-  const date = new Date(
-    `${Y}-${M}-${D}T${h}:${m}:${s}.${millis || ""}${Z || `${utcH}:${utcM}`}`
-  );
-  if (!date) {
-    throw new Error("Could not parse date string: " + datestring);
+  const normalizedDateString = `${Y}-${M}-${D}T${h}:${m}:${s}${
+    millis ? "." + millis : ""
+  }${Z || `${utcH}:${utcM}`}`;
+  const date = new Date(normalizedDateString);
+  if (isNaN(date.valueOf())) {
+    throw new Error("Could not parse date string " + datestring);
   }
   return date;
 }
