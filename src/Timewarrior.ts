@@ -58,14 +58,6 @@ export class ErrorCode extends Error {
   }
 }
 
-/**
- * @returns `true` if the number is a non-negative integer and therefore
- * suitable as ID. It is not checked whether an Interval with that ID exists.
- */
-function assertId(id: number) {
-  return Number.isInteger(id) && id > 0;
-}
-
 export default class Timewarrior {
   public readonly version: string;
   private readonly TIMEWARRIOR: string;
@@ -119,6 +111,9 @@ export default class Timewarrior {
   // TODO: Find a way of making this private, still allowing Interval to access
   // getInterval()
   getTracked(id: number) {
+    if (!Number.isInteger(id) || id < 1) {
+      throw new Error("Expected positive integer as ID, but got " + id);
+    }
     const result = this.spawn("get", [`dom.tracked.${id}.json`]);
     return new Interval(JSON.parse(result.stdout), this);
   }
