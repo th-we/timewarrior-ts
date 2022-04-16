@@ -8,7 +8,7 @@ let timewarrior = new Timewarrior();
 const dummyRange = [
   new Date("2002-02-02T02:02:02Z"),
   new Date("2002-02-02T02:02:20Z"),
-];
+] as [Date, Date];
 
 beforeEach(() => {
   const timewarriordb = fs.mkdtempSync(
@@ -48,4 +48,14 @@ test("delete", () => {
   expect(timewarrior.export([start]).length).toBe(1);
   interval.delete();
   expect(timewarrior.export([start]).length).toBe(0);
+});
+
+test("export", () => {
+  timewarrior.track(dummyRange[0], dummyRange[1]);
+  expect(timewarrior.export([dummyRange[0]]).length).toBe(1);
+  expect(timewarrior.export(dummyRange).length).toBe(1);
+  timewarrior.start();
+  expect(timewarrior.export([dummyRange[0]]).length).toBe(2);
+  expect(timewarrior.export([dummyRange[1]]).length).toBe(1);
+  expect(timewarrior.export(dummyRange).length).toBe(1);
 });
