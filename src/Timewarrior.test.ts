@@ -1,7 +1,6 @@
-import mockTimewarrior from "./mockTimewarrior";
+import Timewarrior from "./Timewarrior";
 
 test("Timewarrior constructor", () => {
-  const version = "1.2.3";
-  const timewarrior = mockTimewarrior([["--version", version]]);
-  expect(timewarrior.version).toBe(version);
+  const timewarrior = new Timewarrior();
+  expect(timewarrior.version).toMatch(/^\d+\.\d+\.\d+$/);
 });

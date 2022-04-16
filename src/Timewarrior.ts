@@ -77,7 +77,7 @@ export default class Timewarrior {
   constructor(options?: TimewarriorOptions) {
     this.TIMEWARRIOR = options?.command || "timew";
     this.timewarriordb = options?.timewarriordb || "";
-    this.version = this.spawn("--version").stdout;
+    this.version = this.spawn("--version").stdout.trim();
   }
 
   // TODO: Find a way of making this private, still allowing Interval to access
