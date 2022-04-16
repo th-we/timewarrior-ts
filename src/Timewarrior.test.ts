@@ -16,12 +16,16 @@ test("Timewarrior constructor", () => {
   expect(timewarrior.version).toMatch(/^\d+\.\d+\.\d+$/);
 });
 
-test("continue", async () => {
-  const tags = ["tag1", "tag2"];
+test("continue", () => {
+  const taglist = ["tag1", "tag2"];
   const annot = "my annotation";
-  timewarrior.start(tags, annot);
-  await timewarrior.stop();
+  const range = [
+    new Date("2002-02-02T02:02:02Z"),
+    new Date("2002-02-02T02:02:20Z"),
+  ];
+  timewarrior.track(range[0], range[1], taglist).annotation = annot;
   const interval = timewarrior.getTracked(1).continue();
-  expect(interval?.tags).toEqual(tags);
-  expect(interval?.annotation).toEqual(annot);
+  expect(interval.tags).toEqual(taglist);
+  expect(interval.annotation).toEqual(annot);
+  expect(interval.end).toBe(undefined);
 });

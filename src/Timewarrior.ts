@@ -211,7 +211,7 @@ export default class Timewarrior {
     tags ||= [];
     const hints = adjust ? [":adjust"] : [];
     this.spawn("track", [...range, ...tags, ...hints]);
-    return this.exportInterval([start, end]);
+    return new Interval(this.exportInterval([start, end]), this);
   }
 
   undo() {
