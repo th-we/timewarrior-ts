@@ -48,7 +48,7 @@ export class Interval {
   }
 
   /**
-   * As changes to intervals can affect the numeric IDs of other intervals
+   * As changes to Intervals can affect the numeric IDs of other Intervals
    * though nothing else about them changes, this method allows to sync the ID
    * with the ID currently found in the db.
    *
@@ -97,6 +97,9 @@ export class Interval {
     return this._tags.has(tag);
   }
 
+  /**
+   * Add tag(s)
+   */
   tag(tags: string | string[] | Set<string>) {
     this.sync();
     if (typeof tags === "string") {
@@ -106,6 +109,9 @@ export class Interval {
     this._tags = new Set([...this._tags, ...tags]);
   }
 
+  /**
+   * Remove tag(s)
+   */
   untag(tags: string | string[] | Set<string>) {
     this.sync();
     if (typeof tags === "string") {
@@ -168,8 +174,8 @@ export class Interval {
   // join() {}
 
   /**
-   * Splits the interval in half
-   * @returns The two resulting intervals in their order of occurrence
+   * Splits the Interval in half
+   * @returns The two resulting Intervals in their order of occurrence
    */
   split() {
     this.sync();
@@ -181,7 +187,7 @@ export class Interval {
   }
 
   /**
-   * Take the tags and annotation of this Interval and create a new interval,
+   * Take the tags and annotation of this Interval and create a new Interval,
    * either starting/ending at any supplied Dates, or starting right now.
    */
   continue(range?: [Date] | [Date, Date]) {

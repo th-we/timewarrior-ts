@@ -4,7 +4,8 @@ import { Interval, JsonInterval } from "./Interval";
 export type TimewarriorOptions = {
   /**
    * Define the location of the Timewarrior database. Same functionality as the
-   * TIMEWARRIORDB environment variable. If not set, the default
+   * TIMEWARRIORDB environment variable. Only needed if a non-standard location
+   * used.
    */
   timewarriordb?: string;
   /**
@@ -59,7 +60,7 @@ export class ErrorCode extends Error {
 
 /**
  * @returns `true` if the number is a non-negative integer and therefore
- * suitable as ID. It is not checked whether an interval with that ID exists.
+ * suitable as ID. It is not checked whether an Interval with that ID exists.
  */
 function assertId(id: number) {
   return Number.isInteger(id) && id > 0;
@@ -130,7 +131,7 @@ export default class Timewarrior {
   }
 
   /**
-   * @returns `true` if there was an active task that was cancelled
+   * @returns `true` if there was an active Interval that was cancelled
    */
   cancel(): boolean {
     const activeInterval = this.activeInterval();
@@ -142,7 +143,7 @@ export default class Timewarrior {
   }
 
   /**
-   * Starts a new interval
+   * Starts a new Interval
    */
   start(tags?: string[], annotation?: string) {
     this.spawn("start", tags);
@@ -159,10 +160,10 @@ export default class Timewarrior {
   }
 
   /**
-   * @returns The stopped interval, and if tags were supplied and only tracking
-   * of those tags was stopped, also the freshly started interval where the
+   * @returns The stopped Interval, and if tags were supplied and only tracking
+   * of those tags was stopped, also the freshly started Interval where the
    * tracks were removed.
-   * @throws ErrorCode when there is no active interal
+   * @throws ErrorCode when there is no active Interval
    */
   stop(tags?: string[]) {
     const stopped = this.activeInterval();
@@ -177,12 +178,12 @@ export default class Timewarrior {
   }
 
   /**
-   * Adds a new interval to the database.
+   * Adds a new Interval to the database.
    *
-   * @param adjust If `true` will adjust intervals that overlap and delete
-   * intervals that are enclosed by the added interval.
-   * @returns The new interval
-   * @throws ErrorCode in case of conflicting intervals when `adjust` is not true.
+   * @param adjust If `true` will adjust Intervals that overlap and delete
+   * intervals that are enclosed by the added Interval.
+   * @returns The new Interval
+   * @throws ErrorCode in case of conflicting Intervals when `adjust` is not true.
    */
   track(start: Date, end: Date, tags?: string[], adjust?: boolean) {
     const range = [start.toISOString(), "to", end.toISOString()];
@@ -216,7 +217,7 @@ export default class Timewarrior {
 
   /**
    * `export()` variant that will return a single Interval or throw an error if
-   * there is not precisely one interval in the given range.
+   * there is not precisely one Interval in the given range.
    */
   exportInterval(range: [Date] | [Date, Date?], tags?: []) {
     const intervals = this.export(range, tags);
