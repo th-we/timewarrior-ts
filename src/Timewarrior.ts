@@ -1,5 +1,5 @@
 import { spawnSync, SpawnSyncReturns } from "child_process";
-import { Interval, JsonInterval } from "./Interval";
+import { Interval, JsonInterval, normalizeDatestring } from "./Interval";
 
 export type TimewarriorOptions = {
   /**
@@ -186,7 +186,7 @@ export default class Timewarrior {
    * @throws ErrorCode in case of conflicting Intervals when `adjust` is not true.
    */
   track(start: Date, end: Date, tags?: string[], adjust?: boolean) {
-    const range = [start.toISOString(), "to", end.toISOString()];
+    const range = [normalizeDatestring(start), "to", normalizeDatestring(end)];
     tags ||= [];
     const hints = adjust ? [":adjust"] : [];
     this.spawn("track", [...range, ...tags, ...hints]);
@@ -203,16 +203,15 @@ export default class Timewarrior {
   export(range?: [Date] | [Date, Date?], tags?: []) {
     const args = [];
     if (range) {
-      args.push(range[0].toISOString());
+      args.push(normalizeDatestring(range[0]));
       if (range[1]) {
         args.push("to");
-        args.push(range[1].toISOString());
+        args.push(normalizeDatestring(range[1]));
       }
     }
 
-    return JSON.parse(
-      this.spawn("export", [...args, ...(tags || [])]).stdout
-    ) as JsonInterval[];
+    const stdout = this.spawn("export", [...args, ...(tags || [])]).stdout;
+    return JSON.parse(stdout) as JsonInterval[];
   }
 
   /**
@@ -223,8 +222,8 @@ export default class Timewarrior {
     const intervals = this.export(range, tags);
     if (intervals.length !== 1) {
       // Should be unreachable
-      const start = range[0].toISOString();
-      const end = range[1]?.toISOString() || "now";
+      const start = normalizeDatestring(range[0]);
+      const end = range[1] ? normalizeDatestring(range[1]) : "now";
       throw new Error(
         `Expected single interval in range ${start} to ${end}, but found ${intervals.length}`
       );

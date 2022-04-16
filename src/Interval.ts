@@ -89,7 +89,10 @@ export class Interval {
   private modify(mode: "start" | "end", date: string | Date | number) {
     this.sync();
     date = epoch(date);
-    this.timewarrior.spawn("modify", [mode, new Date(date).toISOString()]);
+    this.timewarrior.spawn("modify", [
+      mode,
+      normalizeDatestring(new Date(date)),
+    ]);
     this._end = date;
   }
 
@@ -194,10 +197,10 @@ export class Interval {
     this.sync();
 
     range ||= [new Date()];
-    const args = [range[0].toISOString()];
+    const args = [normalizeDatestring(range[0])];
     if (range[1]) {
       args.push("to");
-      args.push(range[1].toISOString());
+      args.push(normalizeDatestring(range[1]));
     }
 
     this.timewarrior.spawn("continue", args);
@@ -209,16 +212,12 @@ export class Interval {
  * Parses ISO date strings
  */
 function parseDate(datestring: string) {
-  const [, Y, M, D, h, m, s, millis, Z, , utcH, utcM] =
-    datestring.match(
-      /^(\d\d\d\d)-?(\d\d)-?(\d\d)T(\d\d):?(\d\d):?(\d\d)(.\d\d\d)?(Z|([+-])(\d\d):?(\d\d))$/
-    ) || [];
-  const normalizedDateString = `${Y}-${M}-${D}T${h}:${m}:${s}${
-    millis ? "." + millis : ""
-  }${Z || `${utcH}:${utcM}`}`;
-  const date = new Date(normalizedDateString);
+  const normalizedDatestring = normalizeDatestring(datestring);
+  const date = new Date(normalizedDatestring);
   if (isNaN(date.valueOf())) {
-    throw new Error("Could not parse date string " + datestring);
+    throw new Error(
+      `Date string normalization failed. Input:\n\n  ${datestring}\nOutput:\n\n  ${normalizedDatestring}`
+    );
   }
   return date;
 }
@@ -228,7 +227,7 @@ function parseDate(datestring: string) {
  * and the `export` command
  */
 function serializeDate(date: Date) {
-  return date.toISOString().replace(/[-:]/, "");
+  return normalizeDatestring(date).replace(/[-:]/, "");
 }
 
 /**
@@ -255,4 +254,20 @@ export function datesAreEqual(
   b: string | Date | undefined
 ) {
   return !a || !b ? !a === !b : epoch(a) === epoch(b);
+}
+
+/**
+ * @returns Date string in a form that both `new Date()` and the `timew` command
+ * understand. For that purpose, milliseconds are stripped.
+ */
+export function normalizeDatestring(date: string | Date) {
+  const datestring = typeof date === "string" ? date : date.toISOString();
+  const [, Y, M, D, h, m, s, millis, Z, , utcH, utcM] =
+    datestring.match(
+      /^(\d\d\d\d)-?(\d\d)-?(\d\d)T(\d\d):?(\d\d):?(\d\d)(.\d\d\d)?(Z|([+-])(\d\d):?(\d\d))$/
+    ) || [];
+  if (Y === undefined) {
+    throw new Error("Could not parse date string " + datestring);
+  }
+  return `${Y}-${M}-${D}T${h}:${m}:${s}${Z || `${utcH}:${utcM}`}`;
 }
