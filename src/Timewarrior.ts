@@ -162,11 +162,22 @@ export default class Timewarrior {
   /**
    * @returns The stopped Interval, and if tags were supplied and only tracking
    * of those tags was stopped, also the freshly started Interval where the
-   * tracks were removed.
-   * @throws ErrorCode when there is no active Interval
+   * tracks were removed. If there was nothing to stop, an empty object is
+   * returned.
    */
-  stop(tags?: string[]) {
+  async stop(tags?: string[]) {
     const stopped = this.activeInterval();
+    if (!stopped) {
+      return {};
+    }
+
+    const millisSinceStart = new Date().getTime() - stopped.start.getTime();
+    // `timew stop` will terminate with an error code if there isn't at least
+    // one second between the start and the end of the to be stopped interval.
+    // This means we might have to wait.
+    const millisToWait = Math.max(1000 - millisSinceStart, 0);
+    await new Promise((resolve) => setTimeout(resolve, millisToWait));
+
     this.spawn("stop", tags);
     const started = this.activeInterval();
 
