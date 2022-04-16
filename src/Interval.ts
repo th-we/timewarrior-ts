@@ -12,7 +12,9 @@ export class SyncError extends Error {}
 
 export class Interval {
   id: number;
+  /** Start time as epoch (in milliseconds) */
   private _start: number;
+  /** End time as epoch (in milliseconds) */
   private _end?: number;
   private _tags: Set<string>;
   private _annotation: string;
@@ -93,6 +95,7 @@ export class Interval {
     date = epoch(date);
     this.timewarrior.spawn("modify", [
       mode,
+      "@" + this.id,
       normalizeDatestring(new Date(date)),
     ]);
     this._end = date;
@@ -144,6 +147,21 @@ export class Interval {
 
   get annotation() {
     return this._annotation;
+  }
+
+  /**
+   * Duration in seconds. If the Interval is active, the time since it's start.
+   */
+  get duration() {
+    return ((this._end || new Date().getTime()) - this._start) / 1000;
+  }
+
+  /**
+   * May throw an error if the current Interval is open or the end would overlap
+   * the next Interval.
+   */
+  set duration(duration: number) {
+    this.end = this._start + duration * 1000;
   }
 
   /**

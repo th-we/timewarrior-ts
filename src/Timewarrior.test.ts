@@ -87,3 +87,33 @@ test("join", () => {
   const interval13 = interval1.join(2);
   expect(new Set(interval13.tags)).toEqual(new Set(["tag1", "tag2", "tag3"]));
 });
+
+test("duration", async () => {
+  // Younger interval
+  const interval1 = timewarrior.track(dates[4], dates[5]);
+  // Older interval
+  const interval2 = timewarrior.track(dates[2], dates[3], ["tag2", "tag3"]);
+
+  const tooLongDuration =
+    (interval1.start.getTime() - interval2.start.getTime()) / 1000 + 1;
+  console.log(tooLongDuration);
+  expect(() => (interval2.duration = tooLongDuration)).toThrow();
+
+  const oldDuration = interval2.duration;
+  interval2.duration += 1;
+  expect(interval2.duration).toEqual(oldDuration + 1);
+
+  timewarrior.start();
+  const activeInterval = timewarrior.activeInterval()!;
+  expect(() => (activeInterval.duration += 1)).toThrow(
+    "Can't change duration of active interval"
+  );
+
+  await timewarrior.stop();
+  expect(timewarrior.activeInterval()).toBe(undefined);
+
+  const lastInterval = timewarrior.getTracked(1);
+  const oldEnd = lastInterval.end!;
+  lastInterval.duration += 1;
+  expect(lastInterval.end!.getTime()).toBeGreaterThan(oldEnd.getTime());
+});
