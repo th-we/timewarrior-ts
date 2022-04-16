@@ -16,7 +16,17 @@ test("Timewarrior constructor", () => {
   expect(timewarrior.version).toMatch(/^\d+\.\d+\.\d+$/);
 });
 
-test("continue", () => {
+test("cancel()", () => {
+  const start = timewarrior.start().start;
+  expect(timewarrior.activeInterval()).not.toBe(undefined);
+  expect(timewarrior.export([start]).length).toBe(1);
+  timewarrior.cancel();
+  expect(timewarrior.activeInterval()).toBe(undefined);
+  expect(timewarrior.export([start]).length).toBe(0);
+});
+
+
+test("track(), continue() and property interval", () => {
   const taglist = ["tag1", "tag2"];
   const annot = "my annotation";
   const range = [
