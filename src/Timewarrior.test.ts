@@ -116,3 +116,15 @@ test("duration", async function () {
   lastInterval.duration += 1;
   expect(lastInterval.end!.getTime()).toBeGreaterThan(oldEnd.getTime());
 });
+
+test("tags", () => {
+  timewarrior.start();
+  timewarrior.activeInterval()!.tag("foo");
+  expect(timewarrior.activeInterval()!.tags).toEqual(new Set(["foo"]));
+  timewarrior.activeInterval()!.tag(["bar", "baz", "boz"]);
+  expect(timewarrior.activeInterval()!.tags).toEqual(new Set(["foo", "bar", "baz", "boz"]));
+  timewarrior.activeInterval()!.untag("foo");
+  expect(timewarrior.activeInterval()!.tags).toEqual(new Set(["bar", "baz", "boz"]));
+  timewarrior.activeInterval()!.untag(["bar", "baz"]);
+  expect(timewarrior.activeInterval()!.tags).toEqual(new Set(["boz"]));
+});
