@@ -146,3 +146,13 @@ test("modfiy", () => {
   // start time is untouched
   expect(timewarrior.getTracked(1).start.getTime()).toBe(newStart);
 });
+
+test("move", () => {
+  timewarrior.track(dates[0], dates[1]);
+  const diff = 10000;
+  const newStart = dates[0].getTime() + diff;
+  const newEnd = dates[1].getTime() + diff;
+  timewarrior.getTracked(1).move(newStart);
+  expect(timewarrior.getTracked(1).start.getTime()).toBe(newStart);
+  expect(timewarrior.getTracked(1).end!.getTime()).toBe(newEnd);
+});

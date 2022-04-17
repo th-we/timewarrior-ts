@@ -173,6 +173,19 @@ export class Interval {
     this._annotation = annot;
   }
 
+  /**
+   * Moves the start of the Interval to the specified date, also modifying the
+   * end to keep the duration the same.
+   */
+  move(start: string | Date | number) {
+    this.sync();
+    start = epoch(start);
+    this.timewarrior.spawn("move", [
+      "@" + this.id,
+      normalizeDatestring(new Date(start)),
+    ]);
+  }
+
   delete() {
     this.sync();
     this.timewarrior.spawn("delete", ["@" + this.id]);
