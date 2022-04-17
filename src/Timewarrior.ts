@@ -218,7 +218,12 @@ export default class Timewarrior {
    * @returns The new Interval
    * @throws ErrorCode in case of conflicting Intervals when `adjust` is not true.
    */
-  track(start: Date, end: Date, tags?: string[], adjust?: boolean) {
+  track(
+    start: Date,
+    end: Date,
+    tags?: string[] | Set<string>,
+    adjust?: boolean
+  ) {
     const range = [normalizeDatestring(start), "to", normalizeDatestring(end)];
     tags ||= [];
     const hints = adjust ? [":adjust"] : [];

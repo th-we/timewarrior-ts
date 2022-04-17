@@ -88,6 +88,22 @@ test("join", () => {
   expect(new Set(interval13.tags)).toEqual(new Set(["tag1", "tag2", "tag3"]));
 });
 
+test("split", () => {
+  const tags = new Set(["foo"]);
+  const interval = timewarrior.track(dates[0], dates[1], tags);
+  const oldDuration = interval.duration;
+  const annotation = "my annotation";
+  interval.annotation = annotation;
+  const [interval1, interval2] = interval.split();
+  expect(interval1.start.getTime()).toBe(dates[0].getTime());
+  expect(interval2.end!.getTime()).toBe(dates[1].getTime());
+  expect(interval1.duration * 2).toBe(oldDuration);
+  expect(interval2.duration * 2).toBe(oldDuration);
+  expect(interval1.annotation).toBe(annotation);
+  expect(interval2.annotation).toBe(annotation);
+  expect(interval1.tags).toEqual(tags);
+});
+
 test("duration", async function () {
   // Younger interval
   const interval1 = timewarrior.track(dates[4], dates[5]);
