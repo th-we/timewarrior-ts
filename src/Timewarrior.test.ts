@@ -38,6 +38,7 @@ test("cancel()", () => {
   expect(timewarrior.export([start]).length).toBe(0);
 });
 
+// Not implemented: test("config", () => {});
 
 test("track(), continue() and property interval", () => {
   const taglist = ["tag1", "tag2"];
@@ -69,7 +70,6 @@ test("export", () => {
   expect(timewarrior.export(range).length).toBe(1);
 });
 
-
 test("join", () => {
   const interval1 = timewarrior.track(dates[4], dates[5]);
   const interval2 = timewarrior.track(dates[2], dates[3], ["tag2", "tag3"]);
@@ -88,7 +88,7 @@ test("join", () => {
   expect(new Set(interval13.tags)).toEqual(new Set(["tag1", "tag2", "tag3"]));
 });
 
-test("duration", async () => {
+test("duration", async function () {
   // Younger interval
   const interval1 = timewarrior.track(dates[4], dates[5]);
   // Older interval
@@ -96,20 +96,19 @@ test("duration", async () => {
 
   const tooLongDuration =
     (interval1.start.getTime() - interval2.start.getTime()) / 1000 + 1;
-  console.log(tooLongDuration);
   expect(() => (interval2.duration = tooLongDuration)).toThrow();
 
-  const oldDuration = interval2.duration;
+  const newDuration = interval2.duration + 1;
   interval2.duration += 1;
-  expect(interval2.duration).toEqual(oldDuration + 1);
+  expect(interval2.duration).toEqual(newDuration);
 
   timewarrior.start();
   const activeInterval = timewarrior.activeInterval()!;
-  expect(() => (activeInterval.duration += 1)).toThrow(
-    "Can't change duration of active interval"
-  );
+  // Changing duration of active interval must fail
+  expect(() => (activeInterval.duration += 1)).toThrow();
 
-  await timewarrior.stop();
+  await timewarrior.asyncStop();
+  // Just to be sure:
   expect(timewarrior.activeInterval()).toBe(undefined);
 
   const lastInterval = timewarrior.getTracked(1);
