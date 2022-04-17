@@ -128,3 +128,21 @@ test("tags", () => {
   timewarrior.activeInterval()!.untag(["bar", "baz"]);
   expect(timewarrior.activeInterval()!.tags).toEqual(new Set(["boz"]));
 });
+
+test("modfiy", () => {
+  timewarrior.track(dates[0], dates[1]);
+
+  const newStart = dates[0].getTime() - 1000;
+  timewarrior.getTracked(1).start = newStart;
+  // start time is modified
+  expect(timewarrior.getTracked(1).start.getTime()).toBe(newStart);
+  // end time is untouched
+  expect(timewarrior.getTracked(1).end!.getTime()).toBe(dates[1].getTime());
+
+  const newEnd = dates[1].getTime() + 1000;
+  timewarrior.getTracked(1).end = newEnd;
+  // end time is modified
+  expect(timewarrior.getTracked(1).end!.getTime()).toBe(newEnd);
+  // start time is untouched
+  expect(timewarrior.getTracked(1).start.getTime()).toBe(newStart);
+});
